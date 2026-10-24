@@ -1,54 +1,111 @@
-# React + TypeScript + Vite
+# Lovable Clone - AI-Powered Web App Builder
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A real-time AI-powered web application builder inspired by [lovable.dev](https://lovable.dev). This project demonstrates how to build a simple agent using sandboxed environments, MCP servers, and [BAML](https://github.com/BoundaryML/baml). It's hosted on [beam.cloud](https://beam.cloud).
 
-Currently, two official plugins are available:
+![Lovable Clone Demo](assets/lovable-demo.gif)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+> To learn about the architecture in detail, read the full post [on our blog](https://www.beam.cloud/blog/agentic-apps).
 
-## Expanding the ESLint configuration
+## ï¸ Architecture
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+The application consists of four main components:
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+1. **Model Client** - BAML-based client to talk to LLM in an RPC-like way
+2. **Sandbox Environment** - Isolated compute sandbox for running preview environments (React app we're editing)
+3. **MCP Server** - Tools for managing the sandbox and code operations
+4. **WS-Based Agent** - Real-time server for communication between client and agent
+
+![Architecture Diagram](assets/arch.png)
+
+## ð Prerequisites
+
+- Python 3.12+
+- Node.js 20+
+- OpenAI API key
+- [Beam](https://beam.cloud) account for hosting ([sandboxes](https://docs.beam.cloud/v2/sandbox/overview), frontend, mcp server)
+
+## ð ï¸ Installation
+
+1. **Clone the repository**
+
+   ```bash
+   git clone https://github.com/beam-cloud/lovable-clone
+   cd lovable-clone
+   ```
+
+2. **Install Python dependencies**
+
+   ```bash
+   pip install -r requirements.txt
+   # or using uv
+   uv sync
+   ```
+
+3. **Install frontend dependencies**
+
+   ```bash
+   cd frontend
+   npm install
+   ```
+
+4. **Set up secrets**
+   ```bash
+   beam secret create OPENAI_API_KEY 'your-openai-api-key'
+   beam secret create LOVABLE_MCP_URL 'your-mcp-server-url'
+   ```
+
+## ð¯ Usage
+
+### Starting the MCP Server
+
+The MCP server provides tools for managing sandboxed environments:
+
+```bash
+beam serve src/tools.py:s
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+This starts the FastMCP server with tools for:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+- `create_app_environment` - Spins up a new React sandbox
+- `load_code` - Retrieves code from the sandbox
+- `edit_code` - Updates code in the sandbox
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
+### Starting the Agent
+
+The agent handles real-time communication with the client/frontend:
+
+```bash
+beam serve src/agent.py:handler
 ```
+
+### Running the Frontend
+
+```bash
+cd frontend
+npm run dev
+```
+
+### End to end flow for iterating on the app:
+
+1. Start the frontend: `cd frontend && npm run dev`
+2. In a new terminal, start the MCP server: `beam serve src/tools.py:s` -> copy URL displayed in terminal
+3. In a new terminal window, start the agent: `beam serve src/agent.py:handler` -> modify the URL in src/agent.py to point to the above MCP server URL
+4. In the `frontend` directory, copy `.env.template` to `.env`, and replace the token with your `Beam` [token](https://platform.beam.cloud/settings/api-keys), and the URL with the websocket URL printed in the shell
+5. Start interacting with the app in your browser!
+6. If you want to change the prompt, edit `baml_src/build.baml` and run `make generate` to regenerate the BAML clients
+
+### BAML / Prompts
+
+Prompts are defined in `baml_src/build.baml`:
+
+- **EditCode Function** - Main function for code generation
+- **CodeChanges Schema** - Defines the structure of AI responses
+- **Test Cases** - Validate prompt behavior
+
+### Sandbox/MCP server config
+
+The sandbox environment is configured in `src/tools.py`:
+
+- Node.js 20 base image
+- React + Vite + shadcn/ui template
+- Additional packages: React Router, Recharts, TanStack Query, etc.
